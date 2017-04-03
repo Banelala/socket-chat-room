@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <script src="/socket.io/socket.io.js"></script>
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+      <link rel="stylesheet" href="client.css" type="text/css">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+      <style media="screen">
+        h1{
+          position: relative;
+          left: 27%;
+              width: 50%;
+        }
+        body{
+          background-image: url(http://54.146.164.213/~ww/bg.png);
+        }
+        .header{
+          text-align: center;
+        }
+
+
+        .box{
+          border: 1px solid grey;
+          height: 500px;
+          margin: 0px;
+          overflow: scroll;
+        }
+        .ban_btn{
+          position: relative;
+          left: 64%;
+        }
+        #chatlog{
+          padding-left: 10px;
+        }
+        .chat{
+          height: 470px;
+        }
+        #sendMessage{
+          position: relative;
+          top: 570px;
+          z-index: 1;
+        }
+        #message_input{
+          width: 64%;
+          margin-right: -8px;
+        }
+        #username{
+          position: absolute;
+          left:44%;
+          top:31%;
+        }
+        #username_btn{
+          position: absolute;
+          left:48%;
+          top:40%;
+
+        }
+        .private_btn{
+          position: relative;
+          left: 64%;
+        }
+        .btn{
+          font-size: 10px;
+        }
+        .info{
+          text-align: center;
+          color: lightgrey;
+        }
+
+
+      </style>
+      <script type ="text/javascript">
+      var socketio = io.connect();
+      //var $username = $('#username');
+      socketio.on("message_to_client",function(data) {
+         //Append an HR thematic break and the escaped HTML of the new message
+      //   document.getElementById("chatlog").appendChild(document.createElement("hr"));
+         var msg = "<p class='"+data.user+"'>" + data.user + ": " + data.message + "</p>";
+      //   document.getElementById("chatlog").appendChild(document.createTextNode(msg));
+         var html = "<hr>"+msg;
+         $('#chatlog').append(html);
+         var cls = "."+data.user;
+         $(cls).css('color',data.color);
+      });
+
+      //construct a message object
+      function message(msg, name){
+        this.msg = msg;
+        this.name = name;
+      }
+
+      function sendMessage(){
+         var msg = $("#message_input").val();
+         var room = $("#roomname").html();
+
+         socketio.emit("message_to_server", {
+           message:msg,
+           room:room
+         });
+         $("#message_input").val("");
+      }
+
+
+
+      function login(){
+        var me = $("#username").val().trim();
+        socketio.emit("new user",$("#username").val(),function(data) {
+          if(data){
+            $("#me").html(me);
+            $("#log_in").hide();
+            $("#hiddendivs").show();
+
+
+
+         } else {
+           alert('That username is already in use!  Try again.');
+         }
+       });
+       $("#username").val("");
+      }
+
+      socketio.on('current room', function(data){
+				$("#currentRoom").html("<h1 id='roomname'>"+ data.name + '</h1>');
+        var html = "";
+
+        if (data.admin == $("#me").html()) {
+          for (var i = 0; i < data.users.length; i++) {
+            if ($("#me").html() != data.users[i]) {
+              html += "<li class='users'>" + data.users[i] + "<button type='button' class='btn btn-primary ban_btn'>Ban</button></li><button class='btn btn-primary private_btn' id='"+data.users[i]+"'>Private Chat</button>";
+            }else{
+              html += "<li class='users'>" + data.users[i] + "</li>";
+            }
+          }
+
+          $("#usernames").html(html);
+          $('.private_btn').unbind('click');
+          $('.private_btn').click(function(){
+            var targetname = $(this).attr('id');
+            $('#private_message').show();
+            $('#PrivateSender').val(targetname);
+          });
+          $('.users').unbind('click');
+          $('.users').click(function(){
+            if ($(this).html() != $("#me").html()) {//you can't kick yourself out
+              var str = $(this).text();
+              var name = str.replace(/Private Chat/,"");
+              name = name.replace(/Ban/,"");
+              socketio.emit('kick user', name);
+            }
+          });
+          $('.ban_btn').unbind('click');
+          $('.ban_btn').click(function(){
+            var str = $(this).parent().text();
+            var name = str.replace(/Private Chat/,"");
+            name = name.replace(/Ban/,"");
+            socketio.emit('ban user', name);
+          });
+        }else{
+          for (var i = 0; i < data.users.length; i++) {
+            html += "<li class='users'>" + data.users[i] + "</li><button class='btn btn-primary private_btn' id='"+data.users[i]+"'>Private Chat</button>";
+          }
+          $("#usernames").html(html);
+          $('.private_btn').unbind('click');
+          $('.private_btn').click(function(){
+            var targetname = $(this).attr('id');
+            $('#private_message').show();
+            $('#PrivateSender').val(targetname);
+          });
+        }
+			});
+
+      socketio.on('need password',function(data){
+        $('#user_password').show();
+        $('#password_btn').unbind("click");
+        $('#password_btn').click(function(){
+
+          var password = $('#user_password_input').val();
+          socketio.emit('password',password,function(data){
+            $('#user_password').hide();
+            $('#user_password_input').val("");
+            if(data){
+              alert("You have joined the room");
+            }else{
+              alert("Wrong password");
+            }
+          });
+        });
+      });
+
+
+      socketio.on('being kicked', function(data){
+        if ($('#me').html() == data) {
+          socketio.emit('kick me',data);
+          alert("You have been kicked out of the room!");
+        }
+      });
+
+
+      function create(){
+        socketio.emit('new room',$("#chatroom_name").val(),$("#room_password").val(),function(data){
+          if (data) {
+
+          } else {
+            alert('That room name is already in use!  Try again.')
+          }
+          $("#chatroom_name").val("");
+          $("#room_password").val("")
+        });
+      }
+
+      socketio.on('rooms', function(data){
+        var html = "";
+        for (var i = 0; i < data.length; i++) {
+          html += "<li class='room_names'>" + data[i].name + '</li>';
+        }
+        $("#rooms").html(html);
+        $('.room_names').click(function(data1){
+          $('#private_message').hide();
+          socketio.emit('change room', $(this).html(), function(data){
+            if(data){
+              $('#chatlog').html("");
+            }else{
+              alert("You have been banned from this chat room!")
+            }
+          });
+
+        });
+      });
+
+      function showprivate(i){
+
+            $('#private_message').show();
+            $('#PrivateSender').val(i);
+
+      }
+
+      function talkprivate(){
+          $('#private_message').hide();
+          var otheruser = $('#PrivateSender').val();
+          var message = $("#privateMessage").val();
+          console.log(otheruser);
+          $('#privateMessage').val("");
+          socketio.emit("talk Private", {
+          message:message,
+          user:otheruser
+          });
+          $("#message_input").val("");
+      }
+
+
+
+    //determine which one is the receiver
+      socketio.on("sendPrivateMessage", function(data){
+        if($('#me').html() == data.receiver){
+          socketio.emit('sent message',data);
+        }
+      });
+      //show on the sender screen
+    socketio.on("senderPrivateMessage",function(data){
+      document.getElementById("chatlog").appendChild(document.createElement("hr"));
+      var msg = "You said to " + data.receiver + ": " + data.message;
+      document.getElementById("chatlog").appendChild(document.createTextNode(msg));
+    });
+    //show on the receiver screen
+      socketio.on("sentPrivateMessage", function(data){
+         document.getElementById("chatlog").appendChild(document.createElement("hr"));
+         var msg = data.senderusername + " said to you: " + data.message;
+         document.getElementById("chatlog").appendChild(document.createTextNode(msg));
+      });
+
+
+      socketio.on('leave room',function(data){
+
+        var html = "<p class='info'>" + data + " left the room" + "</p>";
+        $('#chatlog').append(html);
+      });
+
+      socketio.on('join room',function(data){
+
+        var html = "<p class='info'>" + data + " joined the room" + "</p>";
+        $('#chatlog').append(html);
+      });
+
+
+
+
+
+
+      </script>
+   </head>
+   <body>
+     <div id="log_in">
+       <input type="text" id="username"><button type="button" id="username_btn" class="btn btn-primary" onclick="login()">Log In</button>
+     </div>
+
+     <div id="hiddendivs" hidden="hidden">
+
+        <div id="me"></div>
+        <div id="crtchatroom">
+          <input type="text" id="chatroom_name" placeholder="New Chat Room Name">
+          <input type="password" id="room_password" placeholder="Password">
+          <button type="button" class="btn btn-primary" onclick="create()">Create</button>
+        </div>
+
+
+
+        <div id="sendMessage">
+          <input type="text" id="message_input"/>
+          <button class="btn btn-primary" onclick="sendMessage()">send</button>
+        </div>
+        <div class="row">
+          <div class="col-md-8 header"><div id="currentRoom" ></div></div>
+          <div class="col-md-2 header"><h2>Users</h2></div>
+          <div class="col-md-2 header"><h2>Rooms</h2></div>
+        </div>
+        <div class="row">
+          <div class="col-md-8 box chat">
+            <div id="chatlog" ></div>
+
+          </div>
+          <div class="col-md-2 box">
+            <div id="usernames" ></div>
+            <input type="text" id="PrivateSender" hidden="hidden">
+            <div id="private_message" hidden="hidden">
+              <input type="text" id="privateMessage"><button class="btn btn-primary" type="button" onclick="talkprivate()">Submit</button>
+            </div>
+          </div>
+          <div class="col-md-2 box">
+            <div id="rooms"></div>
+            <div id="user_password" hidden="hidden">
+              <input type="password" id="user_password_input" placeholder="Password">
+              <button type="button" class="btn btn-primary" id="password_btn">Enter</button>
+            </div>
+          </div>
+        </div>
+
+
+
+
+
+     </div>
+
+
+
+
+
+
+    </body>
+</html>
