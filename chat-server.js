@@ -79,7 +79,6 @@ io.sockets.on("connection", function(socket){
           callback(true);
 					socket.join("Main Lobby");
           socket.username = data.trim();
-					//socket.id = socket.username+"id";
 					socket.room = 0;
           roomObject[socket.room].users.push(socket.username); //add the user to the main lobby
 
@@ -97,7 +96,7 @@ io.sockets.on("connection", function(socket){
 							bool = false;
           }
       }
-			if(bool){
+			if(bool){//
 				callback(true);
 				roomObject.push({
 					admin: socket.username,
